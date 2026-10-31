@@ -11,6 +11,7 @@ import ResolutionCore
     let menu = NSMenu()
     private let service: DisplayService
     private let coordinator: SwitchCoordinator
+    private let launchAtLogin: LaunchAtLoginCoordinator
     private let confirmation = ConfirmationWindow()
     private let popover = NSPopover()
     private var statusItem: NSStatusItem?
@@ -20,8 +21,12 @@ import ResolutionCore
     private var notice: String?
     private let demo: Bool
 
-    init(service: DisplayService, demo: Bool = false) {
+    init(service: DisplayService, demo: Bool = false,
+         loginService: LaunchAtLoginService? = nil, loginPreferences: LaunchNudgePreferences? = nil) {
         self.service = service; self.demo = demo
+        let resolvedLoginService: LaunchAtLoginService = loginService ?? (demo ? DemoLaunchAtLoginService() : SystemLaunchAtLoginService())
+        let resolvedPreferences: LaunchNudgePreferences = loginPreferences ?? (demo ? DemoLaunchNudgePreferences() : StoredLaunchNudgePreferences())
+        launchAtLogin = LaunchAtLoginCoordinator(service: resolvedLoginService, preferences: resolvedPreferences)
         let clock = ContinuousClock()
         let start = clock.now
         coordinator = SwitchCoordinator(service: service, now: {
@@ -136,12 +141,37 @@ import ResolutionCore
     func scalingContent() throws -> ScalingPopoverController {
         ScalingPopoverController(displays: try service.snapshot(), notice: notice ?? coordinator.notice,
             demo: demo, switching: coordinator.pending != nil || coordinator.isBusy,
+            loginStatus: launchAtLogin.status, showLoginSuggestion: launchAtLogin.shouldSuggest,
             onSelect: { [weak self] display, mode in self?.beginPreview(display: display, mode: mode) },
             onAdvanced: { [weak self] sender in
                 guard let self else { return }
                 self.rebuildMenu()
                 self.menu.popUp(positioning: nil, at: NSPoint(x: 0, y: 0), in: sender)
-            }, onQuit: { NSApp.terminate(nil) })
+            }, onEnableLogin: { [weak self] in self?.changeLaunchAtLogin(enabled: true) },
+            onDismissLoginSuggestion: { [weak self] in
+                self?.launchAtLogin.dismissSuggestion()
+                self?.refreshOpenPopover()
+            }, onToggleLogin: { [weak self] in
+                guard let self else { return }
+                self.changeLaunchAtLogin(enabled: self.launchAtLogin.status == .disabled)
+            }, onOpenLoginSettings: { [weak self] in self?.launchAtLogin.openSettings() },
+            onQuit: { NSApp.terminate(nil) })
+    }
+
+    private func changeLaunchAtLogin(enabled: Bool) {
+        do {
+            if enabled { try launchAtLogin.enable() } else { try launchAtLogin.disable() }
+            notice = nil
+        } catch {
+            notice = "Could not change Open at Login: \(error.localizedDescription)"
+        }
+        refreshOpenPopover()
+    }
+
+    private func refreshOpenPopover() {
+        guard popover.isShown, let content = try? scalingContent() else { return }
+        popover.contentViewController = content
+        popover.contentSize = content.preferredContentSize
     }
 
     @objc private func showPreview() {
@@ -188,10 +218,7 @@ import ResolutionCore
             guard let self else { return }
             do { _ = try self.coordinator.reconcile() } catch { self.report(error) }
             self.synchronizeConfirmation()
-            if self.popover.isShown, let content = try? self.scalingContent() {
-                self.popover.contentViewController = content
-                self.popover.contentSize = content.preferredContentSize
-            }
+            self.refreshOpenPopover()
             // Do not rebuild a menu currently tracking a click. Its next opening refreshes it.
         }
         refreshWork = work

@@ -24,7 +24,11 @@ Unzip `ResolutionBar.zip`, drag `ResolutionBar.app` to Applications, then open i
 
 The local build is **ad-hoc signed and unnotarized**, not signed with an Apple Developer ID. A browser-downloaded build may be blocked by Gatekeeper. If you trust the source, attempt to open it, then use **System Settings → Privacy & Security → Open Anyway** where available. Do not disable Gatekeeper globally. See [Apple's instructions](https://support.apple.com/en-us/102445). Managed Macs can prohibit exceptions.
 
-No Accessibility or Screen Recording permission is requested for the core resolution switcher. To stop it, choose **Quit ResolutionBar** from its menu. To uninstall, quit and delete the app. Startup launch is not configured automatically.
+No Accessibility or Screen Recording permission is requested for the core resolution switcher. To stop it, choose **Quit ResolutionBar** from its menu. To uninstall, quit and delete the app.
+
+### Open at login
+
+The menu suggests **Open at Login** so ResolutionBar can be ready when you sign in. Choose **Not Now** to dismiss the suggestion; the **Open at Login** checkbox remains available in the panel whenever you want to change it. Nothing is registered until you choose to enable it. If macOS reports that approval is needed, choose **Open Login Items…** and allow ResolutionBar in System Settings. Install the app in Applications before enabling the option, so it has a stable location.
 
 ## Build from source
 

@@ -71,18 +71,41 @@ import ResolutionCore
     private var actions: [ObjectIdentifier: () -> Void] = [:]
 
     init(displays: [DisplaySnapshot], notice: String?, demo: Bool, switching: Bool,
+         loginStatus: LaunchAtLoginStatus, showLoginSuggestion: Bool,
          onSelect: @escaping (DisplaySnapshot, DisplayMode) -> Void,
-         onAdvanced: @escaping (NSButton) -> Void, onQuit: @escaping () -> Void) {
+         onAdvanced: @escaping (NSButton) -> Void, onEnableLogin: @escaping () -> Void,
+         onDismissLoginSuggestion: @escaping () -> Void, onToggleLogin: @escaping () -> Void,
+         onOpenLoginSettings: @escaping () -> Void, onQuit: @escaping () -> Void) {
         super.init(nibName: nil, bundle: nil)
         let stack = NSStackView()
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 16
         if demo { stack.addArrangedSubview(label("Demo — real displays are unchanged", size: 11, secondary: true)) }
+        if showLoginSuggestion {
+            let suggestion = NSStackView()
+            suggestion.orientation = .vertical; suggestion.alignment = .leading; suggestion.spacing = 6
+            suggestion.widthAnchor.constraint(equalToConstant: 412).isActive = true
+            let title = label("Keep ResolutionBar ready", size: 13)
+            title.font = .systemFont(ofSize: 13, weight: .semibold)
+            suggestion.addArrangedSubview(title)
+            suggestion.addArrangedSubview(label("Open at login to keep resolution controls in your menu bar.", size: 12, secondary: true))
+            let enable = NSButton(title: "Open at Login", target: self, action: #selector(activate(_:)))
+            enable.bezelStyle = .rounded; enable.controlSize = .small
+            actions[ObjectIdentifier(enable)] = onEnableLogin
+            let dismiss = NSButton(title: "Not Now", target: self, action: #selector(activate(_:)))
+            dismiss.bezelStyle = .rounded; dismiss.controlSize = .small
+            actions[ObjectIdentifier(dismiss)] = onDismissLoginSuggestion
+            let buttons = NSStackView(views: [enable, dismiss]); buttons.orientation = .horizontal; buttons.spacing = 8
+            suggestion.addArrangedSubview(buttons)
+            stack.addArrangedSubview(suggestion)
+            stack.addArrangedSubview(separator())
+        }
         let sections = DisplayMenu.sections(displays)
         if sections.isEmpty { stack.addArrangedSubview(label("No active displays found. Reopen to retry.", size: 13)) }
         for (index, section) in sections.enumerated() {
             if index > 0 { stack.addArrangedSubview(separator()) }
             let heading = NSStackView()
             heading.orientation = .vertical; heading.alignment = .leading; heading.spacing = 4
+            heading.widthAnchor.constraint(equalToConstant: 412).isActive = true
             let name = label(section.title, size: 14); name.font = .systemFont(ofSize: 14, weight: .semibold)
             heading.addArrangedSubview(name)
             if let current = section.display.currentMode {
@@ -124,6 +147,23 @@ import ResolutionCore
         }
         if let notice { stack.addArrangedSubview(label(notice, size: 11, secondary: true)) }
         stack.addArrangedSubview(separator())
+        let login = NSButton(checkboxWithTitle: "Open at Login", target: self, action: #selector(activate(_:)))
+        login.allowsMixedState = loginStatus == .requiresApproval
+        login.state = loginStatus == .requiresApproval ? .mixed : loginStatus == .enabled ? .on : .off
+        login.isEnabled = loginStatus != .unavailable
+        login.controlSize = .small
+        actions[ObjectIdentifier(login)] = onToggleLogin
+        stack.addArrangedSubview(login)
+        if loginStatus == .requiresApproval {
+            let message = label("Approval needed in Login Items before the app can open at login.", size: 11, secondary: true)
+            stack.addArrangedSubview(message)
+            let settings = NSButton(title: "Open Login Items…", target: self, action: #selector(activate(_:)))
+            settings.bezelStyle = .rounded; settings.controlSize = .small
+            actions[ObjectIdentifier(settings)] = onOpenLoginSettings
+            stack.addArrangedSubview(settings)
+        } else if loginStatus == .unavailable {
+            stack.addArrangedSubview(label("Open at Login is unavailable for this copy of the app.", size: 11, secondary: true))
+        }
         let advanced = NSButton(title: "All resolutions…", target: self, action: #selector(activate(_:)))
         advanced.bezelStyle = .rounded; advanced.controlSize = .small
         actions[ObjectIdentifier(advanced)] = { onAdvanced(advanced) }
