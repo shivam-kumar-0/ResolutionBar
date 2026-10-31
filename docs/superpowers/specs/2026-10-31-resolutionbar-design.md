@@ -1,6 +1,6 @@
 # ResolutionBar — proposed first release
 
-Status: proposed for review. No product code has been written.
+Status: approved and implemented; the user subsequently requested the compact macOS-style preset picker described below.
 
 ## Purpose
 
@@ -85,3 +85,9 @@ An independent builder reviewed this proposal. The API limitations, mirror detec
 - [Configuration scopes](https://developer.apple.com/documentation/coregraphics/cgconfigureoption)
 - [Display reconfiguration callbacks](https://developer.apple.com/documentation/coregraphics/cgdisplayreconfigurationcallback)
 - [Mirror-group detection](https://developer.apple.com/documentation/coregraphics/cgdisplaymirrorsdisplay(_:))
+
+## User-requested interface revision
+
+The menu bar icon opens a native compact popover. Each active display has up to five visual text-size cards, ordered from Larger Text to More Space, with the selected choice outlined. Modes of the same logical size are grouped; HiDPI and the current refresh rate are preferred, while retaining the active size. A Default caption requires the public IOGraphicsTypes default flag. The complete resolution list is available only through All resolutions…. A long display list scrolls. The same tested Keep/Revert and display safety rules apply. The main interface does not expose refresh-rate variants as separate cards.
+
+Review hardening: refuse previews without an enumerated restorable original; synchronously invalidate connection tokens on received remove/add callbacks using a lock; disable mutation if observation or reliable identity is unavailable; refuse ambiguous identities; recheck expiry after validation.

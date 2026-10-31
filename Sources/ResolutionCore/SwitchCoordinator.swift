@@ -42,8 +42,15 @@ public struct SwitchFailure: LocalizedError {
             throw SwitchFailure("This display connection changed. Open the menu and choose again.")
         }
         guard !target.isMirrored else { throw SwitchFailure("Resolution switching is unavailable while mirroring.") }
+        if let reason = target.unavailableReason { throw SwitchFailure(reason) }
+        guard before.filter({ $0.identity == target.identity }).count == 1 else {
+            throw SwitchFailure("This display cannot be identified unambiguously. Reconnect it and try again.")
+        }
         guard let originalMode = target.currentMode else { throw SwitchFailure("The current resolution could not be read, so a recoverable preview is unavailable.") }
         if originalMode == mode { return false }
+        guard target.modes.contains(originalMode) else {
+            throw SwitchFailure("The current resolution is unavailable to restore, so switching is disabled for this display.")
+        }
         guard mode.isSelectable, target.modes.contains(mode) else {
             throw SwitchFailure("This resolution is no longer available. Open the menu and choose again.")
         }
@@ -80,6 +87,10 @@ public struct SwitchFailure: LocalizedError {
                   target.currentMode == change.desired, !target.isMirrored else {
                 throw SwitchFailure("The display settings changed during the preview. The change was not saved.")
             }
+            guard target.unavailableReason == nil, current.filter({ $0.identity == target.identity }).count == 1 else {
+                throw SwitchFailure("The display can no longer be identified or monitored reliably. The change was not saved.")
+            }
+            guard now() < change.deadline else { throw SwitchFailure("The preview expired while validating the display. The change was not saved.") }
             isBusy = true
             try service.apply(display: target, mode: change.desired, scope: .permanent)
             pending = nil
@@ -98,7 +109,8 @@ public struct SwitchFailure: LocalizedError {
         defer { isBusy = false }
         let current = try service.snapshot()
         guard let target = current.first(where: { $0.sameConnection(as: change.original) }),
-              target.isActive, !target.isMirrored else {
+              target.isActive, !target.isMirrored, target.unavailableReason == nil,
+              current.filter({ $0.identity == target.identity }).count == 1 else {
             notice = "Preview cancelled. The display connection changed, so its previous resolution could not be restored."
             return
         }

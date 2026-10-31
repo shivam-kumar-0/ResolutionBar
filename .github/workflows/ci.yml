@@ -1,0 +1,37 @@
+name: Build and test
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Core policy tests
+        run: bash scripts/test.sh
+  package:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Build both architectures and package
+        run: bash scripts/build-app.sh
+      - name: Native demo integration checks
+        run: dist/ResolutionBar.app/Contents/MacOS/ResolutionBar --smoke-test
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ResolutionBar-universal-unnotarized
+          path: |
+            dist/ResolutionBar.zip
+            dist/ResolutionBar.zip.sha256
+          if-no-files-found: error

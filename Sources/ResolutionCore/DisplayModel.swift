@@ -57,15 +57,18 @@ public struct DisplaySnapshot: Equatable, Codable {
     public var frame: DisplayFrame
     public var currentMode: DisplayMode?
     public var modes: [DisplayMode]
+    public var unavailableReason: String?
 
     public init(id: UInt32, identity: String, generation: String, name: String,
                 isActive: Bool = true, isMain: Bool = false, isBuiltin: Bool = false,
                 isMirrored: Bool = false, mirrorPrimary: UInt32? = nil,
-                frame: DisplayFrame = DisplayFrame(), currentMode: DisplayMode?, modes: [DisplayMode]) {
+                frame: DisplayFrame = DisplayFrame(), currentMode: DisplayMode?, modes: [DisplayMode],
+                unavailableReason: String? = nil) {
         self.id = id; self.identity = identity; self.generation = generation; self.name = name
         self.isActive = isActive; self.isMain = isMain; self.isBuiltin = isBuiltin
         self.isMirrored = isMirrored; self.mirrorPrimary = mirrorPrimary; self.frame = frame
         self.currentMode = currentMode; self.modes = modes
+        self.unavailableReason = unavailableReason
     }
 
     public func sameConnection(as other: DisplaySnapshot) -> Bool {
@@ -89,6 +92,7 @@ public enum DisplayMenu {
             return $0.id < $1.id
         }
         let counts = Dictionary(grouping: active, by: \.name).mapValues(\.count)
+        let identities = Dictionary(grouping: displays, by: \.identity).mapValues(\.count)
         return active.enumerated().map { index, display in
             var title = display.name
             if counts[display.name, default: 0] > 1 { title += " (Display \(index + 1))" }
@@ -107,8 +111,16 @@ public enum DisplayMenu {
                 if $0.refreshRate != $1.refreshRate { return $0.refreshRate < $1.refreshRate }
                 return $0.id < $1.id
             }
+            var explanation = display.unavailableReason
+            if identities[display.identity, default: 0] > 1 {
+                explanation = "This display cannot be identified unambiguously. Reconnect it and try again."
+            }
+            if let current = display.currentMode, !display.modes.contains(current) {
+                explanation = "Switching is unavailable because the current resolution cannot be restored."
+            }
+            if display.currentMode == nil { explanation = "The current resolution could not be read." }
             return DisplayMenuSection(display: display, title: title, modes: modes,
-                explanation: modes.isEmpty ? "No display modes are available for this display." : nil)
+                explanation: explanation ?? (modes.isEmpty ? "No display modes are available for this display." : nil))
         }
     }
 }

@@ -176,4 +176,33 @@ import Testing
         catch { #expect(error.localizedDescription.contains("restore")) }
         #expect(subject.pending == nil)
     }
+
+    @Test func missingRestorableOriginalRejectsPreviewBeforeMutation() {
+        let (service, _, subject) = setup()
+        service.displays[0].currentMode = mode(99)
+        #expect(throws: (any Error).self) { try subject.select(display: service.displays[0], mode: mode(2, width: 2560)) }
+        #expect(service.calls.isEmpty)
+        #expect(service.displays[0].currentMode?.id == 99)
+    }
+
+    @Test func unreliableObservationAndAmbiguousIdentityRejectMutation() {
+        let (service, _, subject) = setup()
+        service.displays[0].unavailableReason = "Display observation is unavailable"
+        #expect(throws: (any Error).self) { try subject.select(display: service.displays[0], mode: mode(2, width: 2560)) }
+        service.displays[0].unavailableReason = nil
+        var duplicate = display(2)
+        duplicate.identity = service.displays[0].identity
+        service.displays.append(duplicate)
+        #expect(throws: (any Error).self) { try subject.select(display: service.displays[0], mode: mode(2, width: 2560)) }
+        #expect(service.calls.isEmpty)
+    }
+
+    @Test func deadlineReachedDuringValidationCannotSave() throws {
+        let (service, clock, subject) = setup()
+        try subject.select(display: service.displays[0], mode: mode(2, width: 2560))
+        service.onSnapshot = { clock.time += 20 }
+        #expect(throws: (any Error).self) { try subject.keep() }
+        #expect(!service.calls.contains { $0.2 == .permanent })
+        #expect(service.displays[0].currentMode?.id == 1)
+    }
 }
