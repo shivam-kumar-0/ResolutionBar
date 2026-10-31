@@ -69,9 +69,9 @@ Keep requests permanent saving. macOS can accept some configurations only for th
 - `Sources/ResolutionCore`: modes, compact scaling presets, menu sections, connection invalidation, preview/rollback policy.
 - `Sources/ResolutionBar`: Core Graphics adapter, menu, confirmation and demo.
 - `Tests/ResolutionCoreTests`: mode and recovery policy tests with an injected clock/display service; no live hardware mutation.
-- `.github/workflows/ci.yml`: tests on Apple Silicon and Intel runners, plus universal build artifacts. It does not publish releases.
+- `docs/github/ci.yml.example`: ready-to-enable GitHub Actions template for tests on Apple Silicon and Intel runners, plus universal build artifacts. It does not publish releases.
 
-To publish, create a GitHub repository, push this source, and attach the generated ZIP and checksum to a GitHub Release. Review license attribution and bundle identifier before release. MIT attribution currently names ResolutionBar contributors. CI requires no signing secrets.
+To publish, create a GitHub repository, push this source, and attach the generated ZIP and checksum to a GitHub Release. Review license attribution and bundle identifier before release. MIT attribution currently names ResolutionBar contributors. The workflow template requires no signing secrets. Automatic CI is currently inactive because the publishing login lacks GitHub’s `workflow` scope. To enable it, use a credential permitted to manage workflows, copy `docs/github/ci.yml.example` to `.github/workflows/ci.yml`, and push that file.
 
 For a smoother public installation experience, obtain a Developer ID certificate, sign with hardened runtime, notarize, and staple the notarization ticket before packaging. This optional workflow requires paid Apple Developer Program access; it is not part of this local build script. [Apple's distribution documentation](https://developer.apple.com/developer-id/).
 

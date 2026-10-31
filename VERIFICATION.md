@@ -17,7 +17,7 @@ This is a first-release preview, not a claim of fully verified hardware compatib
 
 - The command execution session reported no online displays through read-only Core Graphics diagnostics. This is an execution-session result, not proof that the user's GUI session has no displays.
 - No real resolution change, physical disconnect/mirroring/lid-close/wake sequence, permanent-save promotion, or process-exit fallback was exercised.
-- Intel and macOS 13 runtime behavior require testing on those systems. Compilation is verified; runtime equivalence is not assumed. CI is configured for Apple Silicon and Intel runners, but has not been run on GitHub because the repository has not been published.
+- Intel and macOS 13 runtime behavior require testing on those systems. Compilation is verified; runtime equivalence is not assumed. An inactive CI template is prepared for Apple Silicon and Intel runners. GitHub rejected the original source push because its OAuth credential lacked `workflow` scope; the workflow is published as `docs/github/ci.yml.example` instead. Enable it using a credential permitted to manage workflows. GitHub CI has not run.
 - Native picker rendering and demo confirmation behavior were checked locally. A desktop automation attempt could launch the bundle but could not capture its menu bar-only UI, so it is not claimed as end-to-end mouse/keyboard verification.
 - A browser-downloaded ZIP remains unnotarized and can require Gatekeeper approval. No Developer ID credentials were used.
 
