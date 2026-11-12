@@ -33,5 +33,13 @@ import ResolutionCore
         displays[index].currentMode = mode
         displays[index].frame.width = Double(mode.width)
         displays[index].frame.height = Double(mode.height)
+        if expected.isMirrored {
+            let group = DisplayTopology.mirrorGroup(containing: expected, in: displays)
+            for partner in group where partner.id != expected.id {
+                guard let partnerIndex = displays.firstIndex(where: { $0.id == partner.id }),
+                      let compatible = partner.modes.first(where: { $0.width == mode.width && $0.height == mode.height }) else { continue }
+                displays[partnerIndex].currentMode = compatible
+            }
+        }
     }
 }

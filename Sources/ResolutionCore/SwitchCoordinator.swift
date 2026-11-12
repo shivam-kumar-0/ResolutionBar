@@ -38,10 +38,10 @@ public struct SwitchFailure: LocalizedError {
         guard !isBusy, pending == nil else { throw SwitchFailure("Keep or revert the current preview first.") }
         notice = nil
         let before = try service.snapshot()
-        guard let target = before.first(where: { $0.sameConnection(as: display) }), target.isActive else {
+        guard let target = before.first(where: { $0.sameConnection(as: display) }),
+              DisplayTopology.isModeTarget(target, in: before) else {
             throw SwitchFailure("This display connection changed. Open the menu and choose again.")
         }
-        guard !target.isMirrored else { throw SwitchFailure("Resolution switching is unavailable while mirroring.") }
         if let reason = target.unavailableReason { throw SwitchFailure(reason) }
         guard before.filter({ $0.identity == target.identity }).count == 1 else {
             throw SwitchFailure("This display cannot be identified unambiguously. Reconnect it and try again.")
@@ -84,7 +84,8 @@ public struct SwitchFailure: LocalizedError {
             let current = try service.snapshot()
             guard sameTopology(change.expected, current),
                   let target = current.first(where: { $0.sameConnection(as: change.original) }),
-                  target.currentMode == change.desired, !target.isMirrored else {
+                  target.currentMode == change.desired, DisplayTopology.isModeTarget(target, in: current),
+                  mirrorGroupUnchanged(change.original, expected: change.expected, actual: current) else {
                 throw SwitchFailure("The display settings changed during the preview. The change was not saved.")
             }
             guard target.unavailableReason == nil, current.filter({ $0.identity == target.identity }).count == 1 else {
@@ -109,7 +110,8 @@ public struct SwitchFailure: LocalizedError {
         defer { isBusy = false }
         let current = try service.snapshot()
         guard let target = current.first(where: { $0.sameConnection(as: change.original) }),
-              target.isActive, !target.isMirrored, target.unavailableReason == nil,
+              DisplayTopology.isModeTarget(target, in: current), target.unavailableReason == nil,
+              mirrorGroupUnchanged(change.original, expected: change.expected, actual: current),
               current.filter({ $0.identity == target.identity }).count == 1 else {
             notice = "Preview cancelled. The display connection changed, so its previous resolution could not be restored."
             return
@@ -138,6 +140,7 @@ public struct SwitchFailure: LocalizedError {
         guard !isBusy, let change = pending else { return false }
         let current = try service.snapshot()
         if sameTopology(change.expected, current),
+           mirrorGroupUnchanged(change.original, expected: change.expected, actual: current),
            current.first(where: { $0.sameConnection(as: change.original) })?.currentMode == change.desired {
             return false
         }
@@ -151,6 +154,17 @@ public struct SwitchFailure: LocalizedError {
     private func recover(after failure: Error) -> Error {
         do { try revert(); return failure }
         catch { return SwitchFailure("\(failure.localizedDescription) Also unable to restore the previous resolution: \(error.localizedDescription)") }
+    }
+
+    private func mirrorGroupUnchanged(_ target: DisplaySnapshot, expected: [DisplaySnapshot], actual: [DisplaySnapshot]) -> Bool {
+        guard target.isMirrored else { return true }
+        let left = DisplayTopology.mirrorGroup(containing: target, in: expected).sorted { $0.id < $1.id }
+        let right = DisplayTopology.mirrorGroup(containing: target, in: actual).sorted { $0.id < $1.id }
+        guard left.count == right.count else { return false }
+        return zip(left, right).allSatisfy { a, b in
+            a.sameConnection(as: b) && a.isMirrored == b.isMirrored && a.mirrorPrimary == b.mirrorPrimary &&
+            a.isMain == b.isMain && a.currentMode == b.currentMode
+        }
     }
 
     private func sameTopology(_ lhs: [DisplaySnapshot], _ rhs: [DisplaySnapshot], geometry: Bool = true) -> Bool {

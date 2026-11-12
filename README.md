@@ -12,9 +12,11 @@ A small native macOS menu bar utility for changing display resolution. Written i
 2. Click the icon to open a compact visual picker. Choose among up to five text-size presets, ordered from Larger Text to More Space. Multiple extended displays have separate named sections. Use All resolutions… only when you need the full list.
 3. Choose **Keep** within 15 seconds, or choose **Revert**. Timeout, Escape, and closing the confirmation window request the previous resolution again.
 
+The compact picker uses known scaling profiles for common MacBook, iMac and Apple displays, plus the observed 4K profile, only when macOS reports all required modes. For an unknown display it includes the largest selectable logical size, the current size and the default when available. These profiles are best-effort and can differ from System Settings across macOS versions, refresh rates and connections. Sizes are logical “looks like” dimensions; HiDPI rendering dimensions can differ from the panel’s physical resolution. Available modes remain controlled by macOS and the display connection. The Mac display profile research is documented at [Mac Screen Sizes](https://www.hallo.io/tools/dev/mac-screen-sizes); the observed 4K sequence is also shown in [EIZO’s scaling guidance](https://www.eizoglobal.com/support/compatibility/dpi_scaling_settings_mac_os_x/).
+
 The selected preset has a blue outline. Default is shown only when macOS explicitly flags a default mode; it is not inferred from your current selection. The compact picker prefers HiDPI modes, prefers the current refresh rate, with an explicit system default taking priority for its preset, and groups duplicate size/refresh variants. The advanced list marks the current mode with a checkmark. `HiDPI` means Retina-style rendering; `1×` means standard-density rendering, which may look less sharp on a Retina display. Labels show logical resolution and refresh rate when macOS reports it. Hover a mode to see its rendered pixel dimensions. Available modes depend on your Mac, display, connection and macOS version. The app does not create custom resolutions.
 
-Mirrored groups are detected and read-only in this version. This includes a mirror group's primary display. Use extended mode to switch displays independently. The app does not edit arrangement, rotation, or mirroring; macOS may adjust screen positions when their bounds change.
+A mirrored group has one resolution picker, controlled by its main display (or the group’s primary display if the Mac’s main display is elsewhere). macOS selects compatible modes for its mirrored partners and may adjust their bounds. The app does not change whether displays are mirrored.
 
 Display lists refresh when the menu opens, after display changes, and on wake. No periodic background polling runs while idle. A short timer runs only during a preview. A disconnected display or an external configuration change cancels confirmation; recovery only touches the original target when its connection and preview mode still match.
 
@@ -28,7 +30,7 @@ No Accessibility or Screen Recording permission is requested for the core resolu
 
 ### Open at login
 
-The menu suggests **Open at Login** so ResolutionBar can be ready when you sign in. Choose **Not Now** to dismiss the suggestion; the **Open at Login** checkbox remains available in the panel whenever you want to change it. Nothing is registered until you choose to enable it. If macOS reports that approval is needed, choose **Open Login Items…** and allow ResolutionBar in System Settings. Install the app in Applications before enabling the option, so it has a stable location.
+The menu suggests **Open at Login** so ResolutionBar can be ready when you sign in. Choose **Not Now** to dismiss the suggestion; the **Open at Login** checkbox remains available in the panel whenever you want to change it. Nothing is registered until you choose to enable it. If macOS reports that approval is needed, choose **Open Login Items…** and allow ResolutionBar in System Settings. Install the app in Applications before enabling the option, so it has a stable location. If macOS cannot find the login service, try the checkbox again. If that fails, choose **Open Login Items…** and add ResolutionBar manually using the plus button. The message does not identify why macOS could not find the service.
 
 ## Build from source
 
@@ -64,7 +66,7 @@ Demo mode uses a separate in-memory display service. It cannot apply changes to 
 
 ## Persistence and recovery limits
 
-Preview changes use Core Graphics' application-only scope. Normal Revert restores only the target mode. If the process terminates abruptly, macOS falls back to the session/permanent configuration; that can differ from the exact pre-preview state. A failed rollback is reported.
+Preview changes use Core Graphics' application-only scope. Normal Revert requests the target’s previous mode; for a mirrored group, macOS chooses compatible modes for the other displays. If the process terminates abruptly, macOS falls back to the session/permanent configuration; that can differ from the exact pre-preview state. A failed rollback is reported.
 
 Keep requests permanent saving. macOS can accept some configurations only for the current login session, so not every mode is guaranteed to survive logout or restart. External-change checks are best effort: the public API has no atomic compare-and-change operation against other apps. The app avoids intentionally overwriting settings changed elsewhere and never invokes the user-wide permanent-configuration restore function.
 

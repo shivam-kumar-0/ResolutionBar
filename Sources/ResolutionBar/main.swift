@@ -24,12 +24,16 @@ import ResolutionCore
                     throw SwitchFailure("Missing Quit action in \(scenario) menu")
                 }
                 let modeItems = controller.menu.items.filter { $0.action != nil && $0.title.contains("×") }
-                let expected = scenario == "multiple" ? 8 : scenario == "single" ? 4 : 0
+                let expected = scenario == "multiple" ? 8 : scenario == "single" || scenario == "mirrored" ? 4 : 0
                 guard modeItems.count == expected else { throw SwitchFailure("Unexpected \(scenario) mode count") }
                 print("PASS native menu: \(scenario) (\(modeItems.count) resolution actions)")
                 let content = try controller.scalingContent()
                 let presets = descendants(content.view).compactMap { $0 as? ScalingPresetButton }
-                let presetCount = scenario == "multiple" ? 6 : scenario == "single" ? 3 : 0
+                let presetCount = scenario == "multiple" ? 6 : scenario == "single" || scenario == "mirrored" ? 3 : 0
+                guard presets.allSatisfy({ $0.toolTip?.contains("Looks like \($0.preset.mode.width) × \($0.preset.mode.height)") == true &&
+                    (!$0.preset.mode.isHiDPI || $0.toolTip?.contains("Rendered at \($0.preset.mode.pixelWidth) × \($0.preset.mode.pixelHeight)") == true) }) else {
+                    throw SwitchFailure("Preset resolution tooltip is missing or incorrect in \(scenario)")
+                }
                 guard presets.count == presetCount, content.preferredContentSize.width == 452,
                       content.preferredContentSize.height > 0, content.preferredContentSize.height <= 580 else {
                     throw SwitchFailure("Invalid compact picker layout in \(scenario)")
@@ -90,7 +94,38 @@ import ResolutionCore
                   pending.state == .mixed else { throw SwitchFailure("Pending login approval is not shown") }
             approval.performClick(nil)
             guard loginService.didOpenSettings else { throw SwitchFailure("Login settings action did not reach the demo service") }
-            print("PASS login suggestion, dismissal, enable, disable and approval UI (demo only)")
+            loginService.status = .notFound
+            settingsView = try loginController.scalingContent().view
+            guard let retry = descendants(settingsView).compactMap({ $0 as? NSButton }).first(where: { $0.title == "Open at Login" }), retry.isEnabled,
+                  descendants(settingsView).compactMap({ $0 as? NSButton }).contains(where: { $0.title == "Open Login Items…" }) else {
+                throw SwitchFailure("Login service retry or settings fallback is missing")
+            }
+            retry.performClick(nil)
+            guard loginService.status == .enabled else { throw SwitchFailure("Login service retry failed") }
+            print("PASS login suggestion, dismissal, enable, disable, approval and retry UI (demo only)")
+            let mirrorService = DemoDisplayService(scenario: "mirrored")
+            let mirrorController = AppController(service: mirrorService, demo: true)
+            let mirrorContent = try mirrorController.scalingContent()
+            let mirrorBefore = try mirrorService.snapshot()
+            guard let mirrorChoice = descendants(mirrorContent.view).compactMap({ $0 as? ScalingPresetButton }).first(where: { $0.isEnabled && $0.preset.mode != mirrorBefore[0].currentMode }) else {
+                throw SwitchFailure("Missing mirrored display preset")
+            }
+            mirrorChoice.performClick(nil)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+            guard let mirrorPanel = application.windows.first(where: { $0.title == "Keep this resolution?" && $0.isVisible }),
+                  let mirrorPanelContent = mirrorPanel.contentView,
+                  let mirrorRevert = descendants(mirrorPanelContent).compactMap({ $0 as? NSButton }).first(where: { $0.title == "Revert" }) else {
+                throw SwitchFailure("Mirrored preview confirmation is missing")
+            }
+            let mirroredPreview = try mirrorService.snapshot()
+            guard mirroredPreview[0].currentMode == mirrorChoice.preset.mode, mirroredPreview.allSatisfy(\.isMirrored) else {
+                throw SwitchFailure("Mirrored preview did not retain the mirror group")
+            }
+            mirrorRevert.performClick(nil)
+            guard try mirrorService.snapshot()[0].currentMode == mirrorBefore[0].currentMode else {
+                throw SwitchFailure("Mirrored preview did not revert")
+            }
+            print("PASS mirrored preset preview and revert (demo only)")
             let service = DemoDisplayService(scenario: "single")
             let controller = AppController(service: service, demo: true)
             for action in ["Revert", "Keep", "Close"] {

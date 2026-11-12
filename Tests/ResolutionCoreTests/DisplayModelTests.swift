@@ -55,14 +55,24 @@ struct DisplayModelTests {
         #expect(sections.first?.title.contains("Main") == true)
     }
 
-    @Test func testInactiveDisplaysHiddenAndMirroredPrimaryDisabled() {
-        var primary = display(); primary.isMirrored = true
+    @Test func testMirroredMainDisplayProvidesModesAndHidesSecondary() {
+        var primary = display(); primary.isMirrored = true; primary.isMain = true
         var secondary = display(2); secondary.isActive = false
         secondary.isMirrored = true; secondary.mirrorPrimary = 1
         let sections = DisplayMenu.sections([primary, secondary])
         #expect(sections.count == 1)
-        #expect(sections.first?.modes.count == 0)
-        #expect(sections.first?.explanation?.contains("mirroring") == true)
+        #expect(sections.first?.display.id == 1)
+        #expect(sections.first?.modes.count == 2)
+        #expect(sections.first?.explanation == nil)
+    }
+
+    @Test func testMirroredMainSelectionWinsOverPrimaryEvenWhenInactive() {
+        var primary = display(); primary.isMirrored = true
+        var selectedMain = display(2); selectedMain.isActive = false; selectedMain.isMain = true
+        selectedMain.isMirrored = true; selectedMain.mirrorPrimary = 1
+        let sections = DisplayMenu.sections([primary, selectedMain])
+        #expect(sections.count == 1)
+        #expect(sections.first?.display.id == 2)
     }
 
     @Test func testNoDisplaysReturnsEmptySections() {

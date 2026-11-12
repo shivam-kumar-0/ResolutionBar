@@ -153,7 +153,7 @@ import ResolutionCore
                 self?.refreshOpenPopover()
             }, onToggleLogin: { [weak self] in
                 guard let self else { return }
-                self.changeLaunchAtLogin(enabled: self.launchAtLogin.status == .disabled)
+                self.changeLaunchAtLogin(enabled: self.launchAtLogin.status == .disabled || self.launchAtLogin.status == .notFound)
             }, onOpenLoginSettings: { [weak self] in self?.launchAtLogin.openSettings() },
             onQuit: { NSApp.terminate(nil) })
     }
@@ -253,7 +253,7 @@ import ResolutionCore
         DispatchQueue.main.async {
             let alert = NSAlert()
             alert.messageText = "ResolutionBar 0.1.0"
-            alert.informativeText = "A small, offline menu bar utility. Choose a display resolution, then Keep or Revert within 15 seconds. HiDPI is Retina-style rendering; 1× is standard-density rendering. Mirrored groups are read-only in this version."
+            alert.informativeText = "A small, offline menu bar utility. Choose a display resolution, then Keep or Revert within 15 seconds. HiDPI is Retina-style rendering; 1× is standard-density rendering. Mirrored displays follow the main display."
             alert.addButton(withTitle: "OK")
             NSApp.activate(ignoringOtherApps: true)
             alert.runModal()

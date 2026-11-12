@@ -8,7 +8,7 @@ import ResolutionCore
         case .notRegistered: return .disabled
         case .enabled: return .enabled
         case .requiresApproval: return .requiresApproval
-        case .notFound: return .unavailable
+        case .notFound: return .notFound
         @unknown default: return .unavailable
         }
     }

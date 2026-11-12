@@ -90,15 +90,63 @@ import Testing
         #expect(service.calls.isEmpty)
     }
 
-    @Test func mirroredAndUnsafeSelectionsAreRejected() throws {
+    @Test func unsafeSelectionsAreRejected() throws {
         let (service, _, subject) = setup()
-        service.displays[0].isMirrored = true
-        #expect(throws: (any Error).self) { try subject.select(display: service.displays[0], mode: mode(2, width: 2560)) }
-        service.displays[0].isMirrored = false
         let unsafe = mode(3, interlaced: true)
         service.displays[0].modes.append(unsafe)
         #expect(throws: (any Error).self) { try subject.select(display: service.displays[0], mode: unsafe) }
         #expect(service.calls.isEmpty)
+    }
+
+    @Test func mirroredMainCanPreviewAndRevertWhileKeepingMirroring() throws {
+        let (service, _, subject) = setup()
+        service.displays[0].isMirrored = true; service.displays[0].isMain = true
+        var secondary = display(2); secondary.isMirrored = true; secondary.mirrorPrimary = 1
+        secondary.isActive = false; service.displays.append(secondary)
+        try subject.select(display: service.displays[0], mode: mode(2, width: 2560))
+        #expect(service.displays[0].currentMode?.id == 2)
+        #expect(service.displays.allSatisfy { $0.isMirrored })
+        try subject.revert()
+        #expect(service.displays[0].currentMode?.id == 1)
+        #expect(service.displays.allSatisfy { $0.isMirrored })
+    }
+
+    @Test func mirroredMainCanKeepResolutionAndSecondaryCannotBeSelected() throws {
+        let (service, _, subject) = setup()
+        service.displays[0].isMirrored = true; service.displays[0].isMain = true
+        var secondary = display(2); secondary.isMirrored = true; secondary.mirrorPrimary = 1
+        service.displays.append(secondary)
+        #expect(throws: (any Error).self) { try subject.select(display: secondary, mode: mode(2, width: 2560)) }
+        try subject.select(display: service.displays[0], mode: mode(2, width: 2560))
+        try subject.keep()
+        #expect(service.displays[0].currentMode?.id == 2)
+        #expect(service.calls.last?.2 == .permanent)
+        #expect(service.displays.allSatisfy { $0.isMirrored })
+    }
+
+    @Test func externalChangeOnMirroredSecondaryDoesNotGetOverwritten() throws {
+        let (service, _, subject) = setup()
+        service.displays[0].isMirrored = true; service.displays[0].isMain = true
+        var secondary = display(2); secondary.isMirrored = true; secondary.mirrorPrimary = 1
+        service.displays.append(secondary)
+        try subject.select(display: service.displays[0], mode: mode(2, width: 2560))
+        service.displays[1].currentMode = mode(3, width: 3000)
+        #expect(try subject.reconcile())
+        #expect(subject.pending == nil)
+        #expect(service.displays[1].currentMode?.id == 3)
+        #expect(service.calls.count == 1)
+    }
+
+    @Test func reconnectDuringMirroredPreviewDoesNotRestoreToReplacement() throws {
+        let (service, _, subject) = setup()
+        service.displays[0].isMirrored = true; service.displays[0].isMain = true
+        var secondary = display(2); secondary.isMirrored = true; secondary.mirrorPrimary = 1
+        service.displays.append(secondary)
+        try subject.select(display: service.displays[0], mode: mode(2, width: 2560))
+        service.displays[1].generation = "replacement"
+        #expect(try subject.reconcile())
+        #expect(subject.pending == nil)
+        #expect(service.calls.count == 1)
     }
 
     @Test func ownSynchronousCallbackAndSettledNotificationDoNotCancelPreview() throws {

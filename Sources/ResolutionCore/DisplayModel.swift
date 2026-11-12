@@ -76,6 +76,22 @@ public struct DisplaySnapshot: Equatable, Codable {
     }
 }
 
+public enum DisplayTopology {
+    public static func mirrorGroup(containing display: DisplaySnapshot, in displays: [DisplaySnapshot]) -> [DisplaySnapshot] {
+        guard display.isMirrored else { return [display] }
+        let root = display.mirrorPrimary ?? display.id
+        return displays.filter { $0.isMirrored && ($0.mirrorPrimary ?? $0.id) == root }
+    }
+
+    public static func isModeTarget(_ display: DisplaySnapshot, in displays: [DisplaySnapshot]) -> Bool {
+        guard display.isMirrored else { return display.isActive }
+        let group = mirrorGroup(containing: display, in: displays)
+        let root = display.mirrorPrimary ?? display.id
+        let target = group.first(where: \.isMain) ?? group.first(where: { $0.id == root })
+        return target?.id == display.id
+    }
+}
+
 public struct DisplayMenuSection {
     public let display: DisplaySnapshot
     public let title: String
@@ -85,7 +101,7 @@ public struct DisplayMenuSection {
 
 public enum DisplayMenu {
     public static func sections(_ displays: [DisplaySnapshot]) -> [DisplayMenuSection] {
-        let active = displays.filter(\.isActive).sorted {
+        let active = displays.filter { DisplayTopology.isModeTarget($0, in: displays) }.sorted {
             if $0.isMain != $1.isMain { return $0.isMain }
             if $0.isBuiltin != $1.isBuiltin { return $0.isBuiltin }
             if $0.name != $1.name { return $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -98,10 +114,7 @@ public enum DisplayMenu {
             if counts[display.name, default: 0] > 1 { title += " (Display \(index + 1))" }
             if display.isMain { title += " · Main" }
             if display.isBuiltin { title += " · Built-in" }
-            if display.isMirrored {
-                return DisplayMenuSection(display: display, title: title + " · Mirrored",
-                    modes: [], explanation: "Resolution switching is unavailable while mirroring.")
-            }
+            if display.isMirrored { title += " · Mirrored" }
             var candidates = display.modes.filter(\.isSelectable)
             if let current = display.currentMode { candidates.append(current) }
             let modes = Array(Set(candidates)).sorted {

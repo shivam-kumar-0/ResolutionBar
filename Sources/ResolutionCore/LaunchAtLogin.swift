@@ -1,7 +1,7 @@
 import Foundation
 
 public enum LaunchAtLoginStatus: Equatable {
-    case disabled, enabled, requiresApproval, unavailable
+    case disabled, enabled, requiresApproval, notFound, unavailable
 }
 
 @MainActor public protocol LaunchAtLoginService: AnyObject {
@@ -24,11 +24,11 @@ public enum LaunchAtLoginStatus: Equatable {
         if service.status == .enabled || service.status == .requiresApproval { preferences.hasResponded = true }
     }
     public var status: LaunchAtLoginStatus { service.status }
-    public var shouldSuggest: Bool { status == .disabled && !preferences.hasResponded }
+    public var shouldSuggest: Bool { (status == .disabled || status == .notFound) && !preferences.hasResponded }
     public func dismissSuggestion() { preferences.hasResponded = true }
     public func enable() throws {
         guard status != .unavailable else { throw SwitchFailure("Launch at login is unavailable for this copy of the app.") }
-        if status == .disabled { try service.enable() }
+        if status == .disabled || status == .notFound { try service.enable() }
         guard status == .enabled || status == .requiresApproval else {
             throw SwitchFailure("macOS did not enable launch at login. Please try again.")
         }
@@ -36,7 +36,7 @@ public enum LaunchAtLoginStatus: Equatable {
     }
     public func disable() throws {
         guard status != .unavailable else { throw SwitchFailure("Launch at login is unavailable for this copy of the app.") }
-        if status != .disabled { try service.disable() }
+        if status != .disabled && status != .notFound { try service.disable() }
         preferences.hasResponded = true
     }
     public func openSettings() { service.openSettings() }

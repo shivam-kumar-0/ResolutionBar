@@ -16,8 +16,11 @@ import ResolutionCore
         state = selected ? .on : .off
         isEnabled = enabled
         focusRingType = .exterior
-        toolTip = preset.mode.title
-        setAccessibilityLabel("\(preset.accessibilityLabel), \(preset.mode.title)")
+        let mode = preset.mode
+        let looksLike = "Looks like \(mode.width) × \(mode.height)"
+        let rendered = "Rendered at \(mode.pixelWidth) × \(mode.pixelHeight) pixels"
+        toolTip = mode.isHiDPI ? "\(looksLike) · \(rendered)" : looksLike
+        setAccessibilityLabel("\(preset.accessibilityLabel), \(toolTip ?? looksLike)")
         setAccessibilityValue(selected ? "Selected" : "")
         widthAnchor.constraint(equalToConstant: 76).isActive = true
         heightAnchor.constraint(equalToConstant: 94).isActive = true
@@ -27,7 +30,7 @@ import ResolutionCore
     override var acceptsFirstResponder: Bool { isEnabled }
     override func updateTrackingAreas() {
         trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow],
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
                                       owner: self, userInfo: nil))
         super.updateTrackingAreas()
     }
@@ -56,10 +59,11 @@ import ResolutionCore
                                             height: 2), xRadius: 1, yRadius: 1).fill()
         }
         NSGraphicsContext.restoreGraphicsState()
-        let caption = preset.isDefault ? "Default" : state == .on ? "Selected" : ""
+        let caption = hovering ? "\(preset.mode.width) × \(preset.mode.height)" :
+            preset.isDefault ? "Default" : state == .on ? "Selected" : ""
         let paragraph = NSMutableParagraphStyle(); paragraph.alignment = .center
         (caption as NSString).draw(in: NSRect(x: 0, y: 3, width: 76, height: 17), withAttributes: [
-            .font: NSFont.systemFont(ofSize: 11, weight: state == .on ? .semibold : .regular),
+            .font: NSFont.systemFont(ofSize: hovering ? 9 : 11, weight: state == .on ? .semibold : .regular),
             .foregroundColor: textColor, .paragraphStyle: paragraph
         ])
     }
@@ -154,8 +158,11 @@ import ResolutionCore
         login.controlSize = .small
         actions[ObjectIdentifier(login)] = onToggleLogin
         stack.addArrangedSubview(login)
-        if loginStatus == .requiresApproval {
-            let message = label("Approval needed in Login Items before the app can open at login.", size: 11, secondary: true)
+        if loginStatus == .requiresApproval || loginStatus == .notFound {
+            let text = loginStatus == .requiresApproval
+                ? "Approval needed in Login Items before the app can open at login."
+                : "macOS has not recognized the login service. Try Open at Login, or add ResolutionBar in Login Items."
+            let message = label(text, size: 11, secondary: true)
             stack.addArrangedSubview(message)
             let settings = NSButton(title: "Open Login Items…", target: self, action: #selector(activate(_:)))
             settings.bezelStyle = .rounded; settings.controlSize = .small

@@ -83,7 +83,7 @@ private let reconfigurationCallback: CGDisplayReconfigurationCallBack = { id, fl
         let displays = try snapshot()
         guard observing, let fresh = displays.first(where: { $0.sameConnection(as: expected) }),
               fresh.unavailableReason == nil, displays.filter({ $0.identity == fresh.identity }).count == 1,
-              fresh.isActive, !fresh.isMirrored, fresh.currentMode == expected.currentMode else {
+              DisplayTopology.isModeTarget(fresh, in: displays), fresh.currentMode == expected.currentMode else {
             throw SwitchFailure("The display connection or current resolution changed. Please choose again.")
         }
         guard let native = nativeModes(fresh.id).first(where: { Self.describe($0) == mode }) else {

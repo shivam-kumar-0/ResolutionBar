@@ -80,4 +80,21 @@ import Testing
         #expect(throws: (any Error).self) { try coordinator.enable() }
         #expect(coordinator.shouldSuggest)
     }
+
+    @Test func notFoundStillOffersARegistrationAttempt() throws {
+        let service = FakeLoginService(); service.status = .notFound
+        let coordinator = LaunchAtLoginCoordinator(service: service, preferences: MemoryPreferences())
+        #expect(coordinator.shouldSuggest)
+        try coordinator.enable()
+        #expect(service.enableCalls == 1)
+        #expect(coordinator.status == .enabled)
+    }
+
+    @Test func notFoundRegistrationFailureRemainsVisibleAndCanBeRetried() {
+        let service = FakeLoginService(); service.status = .notFound; service.enableFails = true
+        let coordinator = LaunchAtLoginCoordinator(service: service, preferences: MemoryPreferences())
+        #expect(throws: (any Error).self) { try coordinator.enable() }
+        #expect(service.enableCalls == 1)
+        #expect(coordinator.shouldSuggest)
+    }
 }
